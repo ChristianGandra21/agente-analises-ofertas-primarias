@@ -1,0 +1,31 @@
+# LLM e agente
+langchain>=0.3
+langchain-groq>=0.3
+langgraph>=0.2
+
+# Scraping
+playwright>=1.44
+requests>=2.32
+requests-cache>=1.2
+
+# Banco de dados
+sqlalchemy>=2.0
+
+# Data
+pandas>=2.2
+pydantic>=2.7
+
+# Dashboard
+streamlit>=1.35
+plotly>=5.22
+
+# Agendamento
+apscheduler>=3.10
+
+# Utilitários
+python-dotenv>=1.0
+loguru>=0.7
+
+# Testes
+pytest>=8.2
+pytest-mock>=3.14
