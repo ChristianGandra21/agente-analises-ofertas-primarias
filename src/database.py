@@ -62,6 +62,11 @@ class Oferta(Base):
     com_fgc = Column(Boolean, default=False)
     isento_ir = Column(Boolean, default=False)
 
+    # Dados da oferta (CVM)
+    data_inicio = Column(String(20))
+    valor_total = Column(Float)
+    rito = Column(String(50))
+
     # Rastreabilidade
     url_detalhe = Column(Text)
     data_coleta = Column(DateTime, default=datetime.utcnow)

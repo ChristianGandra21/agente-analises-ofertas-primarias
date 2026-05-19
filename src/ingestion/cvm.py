@@ -26,6 +26,8 @@ from io import BytesIO
 from zipfile import ZipFile
 from pathlib import Path
 
+from src.database import init_db, get_session, Oferta
+
 # ─── Configurações ───────────────────────────────────────────────────────────
 
 CVM_BASE_URL = "https://dados.cvm.gov.br/dados/OFERTA/DISTRIB/DADOS"
@@ -131,6 +133,8 @@ def normalizar(dfs: dict[str, pd.DataFrame]) -> pd.DataFrame:
 
 def salvar_ofertas(df: pd.DataFrame) -> int:
     inseridos = 0
+    total = len(df)
+    logger.info(f"Salvando {total} ofertas no banco de dados...")
 
     with get_session() as session:
         for _, row in df.iterrows():
@@ -161,7 +165,8 @@ def salvar_ofertas(df: pd.DataFrame) -> int:
             )
             session.add(oferta)
             inseridos += 1
-
+        
+        logger.success(f"  → {inseridos} novas ofertas inseridas (ignorado {total - inseridos} duplicatas)")
         session.commit()
 
     return inseridos
@@ -169,6 +174,7 @@ def salvar_ofertas(df: pd.DataFrame) -> int:
 # ─── Main ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    init_db()
     os.makedirs(DATA_DIR, exist_ok=True)
 
     buffer = download_zip(ZIP_URL)
@@ -177,4 +183,3 @@ if __name__ == "__main__":
 
     inseridos = salvar_ofertas(df_normalizado)
     logger.success(f"Total de ofertas inseridas: {inseridos}")
-    
