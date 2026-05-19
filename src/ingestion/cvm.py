@@ -137,19 +137,24 @@ def salvar_ofertas(df: pd.DataFrame) -> int:
     logger.info(f"Salvando {total} ofertas no banco de dados...")
 
     with get_session() as session:
-        for _, row in df.iterrows():
-            existe = session.query(Oferta).filter_by(
-                emissor=row["emissor"],
-                data_inicio=row["data_inicio"],
-            ).first()
+        existentes = {
+            (r.emissor, r.data_inicio)
+            for r in session.query(Oferta.emissor, Oferta.data_inicio).filter(
+                Oferta.fonte == "cvm"
+            ).all()
+        }
+        logger.info(f"  → {len(existentes)} registros já existentes no banco")
 
-            if existe:
+        novas = []
+        for _, row in df.iterrows():
+            chave = (row["emissor"], row["data_inicio"])
+            if chave in existentes:
                 continue
 
             valor = row["valor_total"]
             valor = None if pd.isna(valor) else float(valor)
 
-            oferta = Oferta(
+            novas.append(Oferta(
                 fonte="cvm",
                 emissor=row["emissor"],
                 instituicao=row["instituicao"],
@@ -162,12 +167,14 @@ def salvar_ofertas(df: pd.DataFrame) -> int:
                 valor_total=valor,
                 isento_ir=row["isento_ir"],
                 rito=row["rito"],
-            )
-            session.add(oferta)
-            inseridos += 1
-        
-        logger.success(f"  → {inseridos} novas ofertas inseridas (ignorado {total - inseridos} duplicatas)")
-        session.commit()
+            ))
+
+        if novas:
+            session.add_all(novas)
+            session.commit()
+            inseridos = len(novas)
+
+        logger.success(f"  → {inseridos} novas ofertas inseridas ({total - inseridos} duplicatas ignoradas)")
 
     return inseridos
 
