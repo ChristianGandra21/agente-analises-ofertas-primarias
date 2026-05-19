@@ -36,11 +36,11 @@ DATA_DIR = Path("data/cvm")
 
 FILES = {
     "oferta_distribuicao": {
-        "csv_index": 0,
+        "filename": "oferta_distribuicao.csv",
         "description": "Histórico completo (1988–hoje) — ICVM 400, RCVM 160, ICVM 476, ICVM 555",
     },
     "oferta_resolucao_160": {
-        "csv_index": 1,
+        "filename": "oferta_resolucao_160.csv",
         "description": "Rito automático (2023–hoje) — Resolução CVM 160",
     },
 }
@@ -66,9 +66,13 @@ def extrair_csvs(buffer: BytesIO) -> dict[str, pd.DataFrame]:
     dados = {}
 
     with ZipFile(buffer) as zip_file:
+        nomes_zip = set(zip_file.namelist())
         logger.info(f"Conteúdo do ZIP: {zip_file.namelist()}")
         for nome, config in FILES.items():
-            csv_name = zip_file.namelist()[config["csv_index"]]
+            csv_name = config["filename"]
+            if csv_name not in nomes_zip:
+                logger.warning(f"  → {csv_name} não encontrado no ZIP, pulando")
+                continue
             logger.info(f"Lendo {config['description']} do arquivo {csv_name}...")
             with zip_file.open(csv_name) as csv_file:
                 dados[nome] = pd.read_csv(csv_file, sep=";", encoding="latin1", low_memory=False)

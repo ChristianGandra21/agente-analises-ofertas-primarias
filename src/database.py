@@ -7,7 +7,7 @@ Tabelas:
     - contexto_noticias: artigos extraídos via Jina + LLM
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import (
@@ -69,7 +69,7 @@ class Oferta(Base):
 
     # Rastreabilidade
     url_detalhe = Column(Text)
-    data_coleta = Column(DateTime, default=datetime.utcnow)
+    data_coleta = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class IndicadorMacro(Base):
@@ -82,7 +82,7 @@ class IndicadorMacro(Base):
     codigo_bcb = Column(Integer)                 # código da série no SGS/BCB
     data = Column(String(20), nullable=False)    # "DD/MM/AAAA"
     valor = Column(Float, nullable=False)
-    data_coleta = Column(DateTime, default=datetime.utcnow)
+    data_coleta = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class ContextoNoticia(Base):
@@ -97,7 +97,7 @@ class ContextoNoticia(Base):
     fonte_url = Column(Text)
     resumo_estrategia = Column(Text)
     titulos_json = Column(Text)                  # JSON com lista de títulos
-    data_coleta = Column(DateTime, default=datetime.utcnow)
+    data_coleta = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ─── Inicialização ───────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ Uso direto:
 import requests
 import requests_cache
 from loguru import logger
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.database import IndicadorMacro, get_session, init_db
 
@@ -97,7 +97,7 @@ def salvar_indicadores(dados: dict[str, list[dict]]) -> int:
                     codigo_bcb=config["codigo"],
                     data=r["data"],
                     valor=float(r["valor"].replace(",", ".")),
-                    data_coleta=datetime.utcnow(),
+                    data_coleta=datetime.now(timezone.utc),
                 )
                 session.add(indicador)
                 inseridos += 1

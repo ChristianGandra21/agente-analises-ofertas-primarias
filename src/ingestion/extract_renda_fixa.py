@@ -27,9 +27,20 @@ load_dotenv()
 # ─── URLs ─────────────────────────────────────────────────────────────────────
 
 URLS = [
+    # XP — carteira renda fixa maio 2026 (já tem)
     "https://www.moneytimes.com.br/ipca1098-confira-os-titulos-de-renda-fixa-recomendados-pela-xp-para-maio-jcav/",
+    
+    # XP + Ágora + BTG — 14 papéis recomendados maio 2026
     "https://www.infomoney.com.br/onde-investir/onde-investir-na-renda-fixa-em-maio-veja-14-papeis-recomendados-para-o-mes/",
+    
+    # XP, Guide e Genial — comparativo de recomendações
     "https://maisretorno.com/portal/renda-fixa-confira-recomendacoes-de-guide-xp-e-genial-para-investir",
+    
+    # BTG — carteiras de abril com IPCA+ e prefixados
+    "https://www.seudinheiro.com/2026/renda-fixa/alem-do-tesouro-selic-e-do-cdi-recomendacoes-de-renda-fixa-para-abril-reafirmam-atratividade-de-titulos-ipca-mlim/",
+    
+    # BTG — onde investir em renda fixa 2026
+    "https://content.btgpactual.com/blog/investimentos/onde-investir-em-renda-fixa-em-2026-as-melhores-oportunidades-para-o-ano",
 ]
 
 # ─── Schema Pydantic ──────────────────────────────────────────────────────────
