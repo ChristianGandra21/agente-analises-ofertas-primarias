@@ -42,7 +42,7 @@ def fetch_serie(codigo: int, n: int = 30) -> list[dict]:
     return resp.json()
 
 
-def coletar_indicadores(n: int = 30) -> dict[str, list[dict]]:
+def coletar_indicadores(n: int = 20) -> dict[str, list[dict]]:
     """
     Coleta todas as séries definidas em SERIES.
 
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     init_db()
     logger.info("Iniciando coleta de indicadores BCB...")
 
-    dados = coletar_indicadores(n=30)
+    dados = coletar_indicadores(n=20)
     inseridos = salvar_indicadores(dados)
 
     logger.success(f"\n{inseridos} registros inseridos no banco.")

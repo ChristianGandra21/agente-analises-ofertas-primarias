@@ -1,3 +1,13 @@
+"""
+Scraper de ofertas de renda fixa — Meelion (comparar investimentos).
+
+Extrai cards da listagem, navega no detalhe de cada oferta
+e persiste no banco de dados.
+
+Uso:
+    python -m src.ingestion.meelion
+"""
+
 from playwright.sync_api import sync_playwright, Page
 from loguru import logger
 from datetime import datetime
@@ -5,6 +15,7 @@ from datetime import datetime
 from src.database import Oferta, get_session, init_db
 
 URL_LISTAGEM = "https://www.meelion.com/renda-fixa/comparar-investimentos/"
+
 
 def parse_cards(page: Page):
     cards = page.query_selector_all(".investment-card.h-100")
@@ -19,26 +30,23 @@ def parse_cards(page: Page):
         url_detalhe = f"https://www.meelion.com{href}" if href else None
 
         fgc_el = card.query_selector(".ci-card-fgc-pill")
-        com_fgc = False
-        if fgc_el:
-            com_fgc = "sem fgc" not in fgc_el.inner_text().lower()
+        fgc_texto = fgc_el.inner_text().strip() if fgc_el else None
+        com_fgc = fgc_texto is not None and "sem fgc" not in fgc_texto.lower()
 
         info = {}
         for item in card.query_selector_all(".info-item"):
             label_el = item.query_selector(".label")
             value_el = item.query_selector(".value")
             if label_el and value_el:
-                info[label_el.inner_text().strip()] = value_el.inner_text().strip()
+                label = label_el.inner_text().strip().rstrip(":")
+                info[label] = value_el.inner_text().strip()
 
-        emissor = info.get("Oferecido por:") or info.get("Oferecido por")
-        distribuidor = info.get("Disponível:") or info.get("Disponível")
-        
         ofertas.append({
             "nome": nome,
             "tipo": tipo,
             "com_fgc": com_fgc,
-            "emissor": emissor,
-            "distribuidor": distribuidor,
+            "emissor": info.get("Oferecido por"),
+            "distribuidor": info.get("Disponível"),
             "url_detalhe": url_detalhe,
             "isento_ir": info.get("Impostos") == "ISENTO",
             "data_vencimento": info.get("Vencimento"),
