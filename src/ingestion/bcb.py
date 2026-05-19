@@ -7,7 +7,7 @@ Séries coletadas:
     - USD/BRL diário      (código 1)
 
 Uso direto:
-    python -m src.data_ingestion.bcb
+    python -m src.ingestion.bcb
 """
 
 import requests

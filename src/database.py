@@ -91,6 +91,7 @@ class ContextoNoticia(Base):
     __tablename__ = "contexto_noticias"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tipo = Column(String(20))                    # "macro", "carteira"
     instituicao = Column(String(100))            # "XP", "BTG", ...
     data_referencia = Column(String(20))         # "Maio 2026"
     fonte_url = Column(Text)
