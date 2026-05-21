@@ -16,18 +16,36 @@ from src.database import Oferta, get_session, init_db
 
 URL_LISTAGEM = "https://www.meelion.com/renda-fixa/comparar-investimentos/"
 
+# Tipos de produto conhecidos na renda fixa
+TIPOS_CONHECIDOS = {"CRA", "CDB", "CRI", "LCI", "LCA", "LC", "LF", "DEBENTURE", "DEBENTURES", "CCP", "FIDC", "CCB", "NC"}
+
+
+def extrair_tipo(nome: str | None, href: str | None) -> str | None:
+    """Extrai o tipo do produto (CRA, CDB, LCI…) a partir do nome ou do href."""
+    if nome:
+        primeira_palavra = nome.split()[0].upper() if nome.split() else ""
+        if primeira_palavra in TIPOS_CONHECIDOS:
+            return primeira_palavra
+    if href:
+        slug = href.strip("/").split("/")[-1]  # ex: cra-fs-florestal-cdi-...
+        prefixo = slug.split("-")[0].upper()   # ex: CRA
+        if prefixo in TIPOS_CONHECIDOS:
+            return prefixo
+    return None
+
 
 def parse_cards(page: Page):
     cards = page.query_selector_all(".investment-card.h-100")
     ofertas = []
     for card in cards:
-        badge = card.query_selector(".badge")
-        tipo = badge.inner_text().strip() if badge else None
+        # Nota: .badge retorna o indexador (PÓS-FIXADO/PRÉ-FIXADO), não o tipo.
+        # O tipo (CRA, CDB, LCI…) é extraído do nome do investimento ou do href.
 
         link_el = card.query_selector(".title-text a")
         nome = link_el.inner_text().strip() if link_el else None
         href = link_el.get_attribute("href") if link_el else None
         url_detalhe = f"https://www.meelion.com{href}" if href else None
+        tipo = extrair_tipo(nome, href)
 
         fgc_el = card.query_selector(".ci-card-fgc-pill")
         fgc_texto = fgc_el.inner_text().strip() if fgc_el else None
