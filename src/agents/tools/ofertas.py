@@ -25,14 +25,34 @@ def consultar_ofertas(
         ofertas = query.limit(20).all()
 
         if not ofertas:
-            return "Nenhuma oferta encontrada com os critérios fornecidos."
+            filtros = []
+            if tipo:
+                filtros.append(f"tipo='{tipo}'")
+            if indexador:
+                filtros.append(f"indexador='{indexador}'")
+            if instituicao:
+                filtros.append(f"instituicao='{instituicao}'")
+            desc = ", ".join(filtros) if filtros else "sem filtro"
+            return (
+                f"RESULTADO: Nenhuma oferta encontrada no banco de dados com os critérios: {desc}. "
+                f"NÃO sugira alternativas nem invente dados — informe ao usuário que não há ofertas "
+                f"do tipo solicitado na base atual."
+            )
 
         resultado = []
         for oferta in ofertas:
-            resultado.append(
-                f"{oferta.instituicao} - {oferta.tipo} {oferta.indexador} - "
-                f"Taxa: {oferta.taxa_bruta} - Vencimento: {oferta.data_vencimento}"
+            linha = (
+                f"[TIPO: {oferta.tipo or 'N/D'}] "
+                f"{oferta.nome} | "
+                f"Indexador: {oferta.indexador or 'N/D'} | "
+                f"Taxa: {oferta.taxa_bruta or 'N/D'} | "
+                f"Venc: {oferta.data_vencimento or 'N/D'} | "
+                f"Emissor: {oferta.emissor or 'N/D'} | "
+                f"Distribuidor: {oferta.instituicao or 'N/D'} | "
+                f"FGC: {'Sim' if oferta.com_fgc else 'Não'} | "
+                f"Isento IR: {'Sim' if oferta.isento_ir else 'Não'}"
             )
+            resultado.append(linha)
         return "\n".join(resultado)
 
 @tool

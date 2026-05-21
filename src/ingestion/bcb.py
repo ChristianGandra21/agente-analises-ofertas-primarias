@@ -2,7 +2,7 @@
 Coleta indicadores macroeconômicos do Banco Central do Brasil (API SGS).
 
 Séries coletadas:
-    - Selic diária        (código 11)
+    - Selic % a.a.        (código 1178) — meta Selic anualizada em percentual
     - IPCA mensal         (código 433)
     - USD/BRL diário      (código 1)
 
@@ -24,9 +24,9 @@ requests_cache.install_cache("data/db/bcb_cache", expire_after=3600)
 # ─── Séries disponíveis ──────────────────────────────────────────────────────
 
 SERIES = {
-    "selic":   {"codigo": 11,  "descricao": "Taxa Selic diária"},
-    "ipca":    {"codigo": 433, "descricao": "IPCA mensal"},
-    "usd_brl": {"codigo": 1,   "descricao": "Taxa de câmbio USD/BRL"},
+    "selic":   {"codigo": 1178, "descricao": "Taxa Selic % a.a."},
+    "ipca":    {"codigo": 433,  "descricao": "IPCA mensal"},
+    "usd_brl": {"codigo": 1,    "descricao": "Taxa de câmbio USD/BRL"},
 }
 
 BCB_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/{n}?formato=json"
