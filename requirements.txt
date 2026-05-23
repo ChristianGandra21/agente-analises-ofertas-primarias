@@ -31,3 +31,5 @@ pytest>=8.2
 pytest-mock>=3.14
 
 tavily-python
+fastapi
+uvicorn
