@@ -44,3 +44,5 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     resposta: str
     valida: bool = True
+    agentes_acionados: list[str] = ["analista", "contextualista"]
+    duracao_segundos: float = 0.0
