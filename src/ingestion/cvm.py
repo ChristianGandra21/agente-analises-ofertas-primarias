@@ -27,6 +27,7 @@ from zipfile import ZipFile
 from pathlib import Path
 
 from src.database import init_db, get_session, Oferta
+from src.ingestion.quality import normalize_indexador, normalize_text, normalize_tipo, parse_percent
 
 # ─── Configurações ───────────────────────────────────────────────────────────
 
@@ -129,6 +130,13 @@ def normalizar(dfs: dict[str, pd.DataFrame]) -> pd.DataFrame:
 
     df["isento_ir"] = df["isento_ir"].str.strip().str.upper() == "S"
 
+    df["emissor"] = df["emissor"].apply(normalize_text)
+    df["instituicao"] = df["instituicao"].apply(normalize_text)
+    df["tipo"] = df["tipo"].apply(normalize_tipo)
+    df["indexador"] = df["indexador"].apply(normalize_indexador)
+    df["taxa_bruta"] = df["taxa_bruta"].apply(normalize_text)
+    df["taxa_valor"] = df["taxa_bruta"].apply(parse_percent)
+
     df = df.reset_index(drop=True)
 
     return df
@@ -151,6 +159,8 @@ def salvar_ofertas(df: pd.DataFrame) -> int:
 
         novas = []
         for _, row in df.iterrows():
+            if not row["emissor"] or not row["tipo"]:
+                continue
             chave = (row["emissor"], row["data_inicio"])
             if chave in existentes:
                 continue
@@ -165,7 +175,7 @@ def salvar_ofertas(df: pd.DataFrame) -> int:
                 tipo=row["tipo"],
                 indexador=row["indexador"],
                 taxa_bruta=row["taxa_bruta"],
-                taxa_valor=None,
+                taxa_valor=row.get("taxa_valor"),
                 data_inicio=row["data_inicio"],
                 data_vencimento=row["data_vencimento"],
                 valor_total=valor,

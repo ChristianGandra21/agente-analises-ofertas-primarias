@@ -49,4 +49,22 @@ export interface ChatResponse {
   valida: boolean;
   agentes_acionados: string[];
   duracao_segundos: number;
+  conversa_id?: number | null;
+}
+
+export interface ConversationItem {
+  id: number;
+  titulo: string;
+  criado_em: string;
+  atualizado_em: string;
+  total_mensagens: number;
+}
+
+export interface ChatMessageItem {
+  id: number;
+  role: "user" | "agent";
+  content: string;
+  timestamp: string;
+  agentes_acionados: string[];
+  duracao_segundos?: number | null;
 }

@@ -13,6 +13,12 @@ from loguru import logger
 from datetime import datetime
 
 from src.database import Oferta, get_session, init_db
+from src.ingestion.quality import (
+    is_valid_oferta,
+    normalize_text,
+    normalize_tipo,
+    parse_percent,
+)
 
 URL_LISTAGEM = "https://www.meelion.com/renda-fixa/comparar-investimentos/"
 
@@ -60,14 +66,14 @@ def parse_cards(page: Page):
                 info[label] = value_el.inner_text().strip()
 
         ofertas.append({
-            "nome": nome,
-            "tipo": tipo,
+            "nome": normalize_text(nome),
+            "tipo": normalize_tipo(tipo),
             "com_fgc": com_fgc,
-            "emissor": info.get("Oferecido por"),
-            "distribuidor": info.get("Disponível"),
+            "emissor": normalize_text(info.get("Oferecido por")),
+            "distribuidor": normalize_text(info.get("Disponível")),
             "url_detalhe": url_detalhe,
             "isento_ir": info.get("Impostos") == "ISENTO",
-            "data_vencimento": info.get("Vencimento"),
+            "data_vencimento": normalize_text(info.get("Vencimento")),
         })
 
     return ofertas
@@ -84,10 +90,10 @@ def fetch_detalhe(page: Page, url: str) -> dict:
     taxa_bruta = taxa_el.inner_text().strip() if taxa_el else None
 
     return {
-        "taxa_bruta": taxa_bruta,
-        "data_vencimento": get_dd(page, "Vencimento"),
+        "taxa_bruta": normalize_text(taxa_bruta),
+        "data_vencimento": normalize_text(get_dd(page, "Vencimento")),
         "isento_ir": get_dd(page, "Imposto de Renda") == "Isento",
-        "rentabilidade_bruta": get_dd(page, "Rentabilidade Bruta"),
+        "rentabilidade_bruta": normalize_text(get_dd(page, "Rentabilidade Bruta")),
     }
 
 def coletar():
@@ -116,6 +122,19 @@ def coletar():
                     logger.error(f"  → Erro ao coletar detalhe de '{oferta['nome']}': {e}")
                     continue
 
+                taxa_bruta = oferta.get("taxa_bruta") or oferta.get("rentabilidade_bruta")
+                oferta["taxa_bruta"] = taxa_bruta
+                oferta["taxa_valor"] = parse_percent(taxa_bruta)
+
+                if not is_valid_oferta(
+                    oferta.get("nome"),
+                    oferta.get("emissor"),
+                    oferta.get("tipo"),
+                    oferta.get("taxa_bruta"),
+                ):
+                    logger.warning(f"  → Oferta '{oferta.get('nome')}' incompleta, ignorando")
+                    continue
+
                 existe = session.query(Oferta).filter_by(
                     nome=oferta["nome"],
                 ).first()
@@ -127,11 +146,12 @@ def coletar():
                 nova_oferta = Oferta(
                     fonte="meelion",
                     nome=oferta["nome"],
-                    tipo=oferta["tipo"],
+                    tipo=normalize_tipo(oferta["tipo"]),
                     com_fgc=oferta["com_fgc"],
                     emissor=oferta["emissor"],
                     instituicao=oferta["distribuidor"],
                     taxa_bruta=oferta.get("taxa_bruta"),
+                    taxa_valor=oferta.get("taxa_valor"),
                     data_vencimento=oferta.get("data_vencimento"),
                     isento_ir=oferta.get("isento_ir", False),
                     url_detalhe=oferta["url_detalhe"],

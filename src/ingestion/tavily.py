@@ -14,6 +14,7 @@ from loguru import logger
 from tavily import TavilyClient
 
 from src.database import ContextoNoticia, get_session, init_db
+from src.ingestion.quality import normalize_text, unique_by_url
 
 load_dotenv()
 
@@ -36,15 +37,23 @@ def _buscar(query: str, max_results: int = 5) -> list[dict]:
     resp = client.search(query=query, max_results=max_results, search_depth="advanced")
     resultados = resp.get("results", [])
     logger.success(f"  → {len(resultados)} resultados para '{query}'")
-    return [
-        {
-            "title": r["title"],
-            "url": r["url"],
-            "content": r["content"],
-            "score": r["score"],
-        }
-        for r in resultados
-    ]
+    filtrados = []
+    for r in resultados:
+        score = r.get("score", 0)
+        content = normalize_text(r.get("content"))
+        if score < 0.2:
+            continue
+        if not content or len(content) < 200:
+            continue
+        filtrados.append(
+            {
+                "title": normalize_text(r.get("title")),
+                "url": r.get("url"),
+                "content": content,
+                "score": score,
+            }
+        )
+    return unique_by_url(filtrados)
 
 
 def buscar_noticias_macro() -> list[dict]:

@@ -5,6 +5,8 @@ import type {
   ContextoItem,
   StatusResponse,
   ChatResponse,
+  ConversationItem,
+  ChatMessageItem,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -59,11 +61,23 @@ export const comparar = (ativo_a_id: number, ativo_b_id: number) =>
     body: JSON.stringify({ ativo_a: ativo_a_id, ativo_b: ativo_b_id }),
   });
 
-export const chatAgente = (pergunta: string) =>
+export const chatAgente = (pergunta: string, conversaId?: number | null) =>
   fetcher<ChatResponse>("/api/agente/chat", {
     method: "POST",
-    body: JSON.stringify({ pergunta }),
+    body: JSON.stringify({ pergunta, conversa_id: conversaId ?? null }),
   });
+
+export const listarConversas = () =>
+  fetcher<ConversationItem[]>("/api/agente/conversas");
+
+export const criarConversa = (titulo?: string) =>
+  fetcher<ConversationItem>("/api/agente/conversas", {
+    method: "POST",
+    body: JSON.stringify({ titulo }),
+  });
+
+export const listarMensagens = (conversaId: number) =>
+  fetcher<ChatMessageItem[]>(`/api/agente/conversas/${conversaId}/mensagens`);
 
 export const dispararColeta = () =>
   fetcher<{ status: string; mensagem: string }>("/api/coletar", {

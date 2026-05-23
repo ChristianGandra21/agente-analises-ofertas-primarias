@@ -39,6 +39,7 @@ class ContextoSchema(BaseModel):
 
 class ChatRequest(BaseModel):
     pergunta: str
+    conversa_id: Optional[int] = None
 
 
 class ChatResponse(BaseModel):
@@ -46,3 +47,25 @@ class ChatResponse(BaseModel):
     valida: bool = True
     agentes_acionados: list[str] = []
     duracao_segundos: float = 0.0
+    conversa_id: Optional[int] = None
+
+
+class ConversationCreate(BaseModel):
+    titulo: Optional[str] = None
+
+
+class ConversationSchema(BaseModel):
+    id: int
+    titulo: str
+    criado_em: str
+    atualizado_em: str
+    total_mensagens: int
+
+
+class ChatMessageSchema(BaseModel):
+    id: int
+    role: str
+    content: str
+    timestamp: str
+    agentes_acionados: list[str] = []
+    duracao_segundos: Optional[float] = None

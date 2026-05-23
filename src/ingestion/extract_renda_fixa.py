@@ -21,6 +21,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from src.database import ContextoNoticia, get_session, init_db
+from src.ingestion.quality import normalize_text, parse_percent
 
 load_dotenv()
 
@@ -110,6 +111,26 @@ URL da fonte: {source_url}"""
     return structured_model.invoke(prompt)
 
 
+def _validar_titulo(titulo: TituloRendaFixa) -> bool:
+    emissor = normalize_text(titulo.ativo_emissor)
+    taxa = normalize_text(titulo.taxa_bruta)
+    if not emissor or len(emissor) < 3:
+        return False
+    if not taxa or parse_percent(taxa) is None:
+        return False
+    return True
+
+
+def _limpar_carteira(carteira: CarteiraRecomendada) -> CarteiraRecomendada:
+    carteira.instituicao = normalize_text(carteira.instituicao) or carteira.instituicao
+    carteira.data_referencia = normalize_text(carteira.data_referencia) or carteira.data_referencia
+    carteira.resumo_estrategia = normalize_text(carteira.resumo_estrategia) or carteira.resumo_estrategia
+
+    validos = [t for t in carteira.titulos if _validar_titulo(t)]
+    carteira.titulos = validos
+    return carteira
+
+
 # ─── Persistência ─────────────────────────────────────────────────────────────
 
 
@@ -172,7 +193,7 @@ def main():
     for url in URLS:
         try:
             content = fetch_page(url)
-            carteira = extract_from_text(content, url)
+            carteira = _limpar_carteira(extract_from_text(content, url))
             exibir_carteira(carteira)
             if salvar_carteira(carteira):
                 total_titulos += len(carteira.titulos)

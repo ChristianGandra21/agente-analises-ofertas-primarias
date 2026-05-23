@@ -14,6 +14,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     Float,
     Integer,
     String,
@@ -98,6 +99,31 @@ class ContextoNoticia(Base):
     resumo_estrategia = Column(Text)
     titulos_json = Column(Text)                  # JSON com lista de títulos
     data_coleta = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Conversa(Base):
+    """Conversa persistida do agente com o usuario."""
+
+    __tablename__ = "conversas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    titulo = Column(String(200), nullable=False)
+    criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    atualizado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Mensagem(Base):
+    """Mensagem individual dentro de uma conversa."""
+
+    __tablename__ = "mensagens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    conversa_id = Column(Integer, ForeignKey("conversas.id"), nullable=False)
+    role = Column(String(20), nullable=False)
+    conteudo = Column(Text, nullable=False)
+    agentes_acionados = Column(Text)
+    duracao_segundos = Column(Float)
+    criada_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 # ─── Inicialização ───────────────────────────────────────────────────────────

@@ -4,10 +4,22 @@ import { motion } from "framer-motion";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatHistory } from "@/components/chat/ChatHistory";
 import { useChat } from "@/hooks/useChat";
 
 export default function AgentePage() {
-  const { messages, input, setInput, loading, handleSend } = useChat();
+  const {
+    messages,
+    input,
+    setInput,
+    loading,
+    loadingConversations,
+    conversations,
+    activeConversationId,
+    handleSend,
+    handleNewConversation,
+    handleSelectConversation,
+  } = useChat();
 
   return (
     <motion.div
@@ -33,16 +45,26 @@ export default function AgentePage() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col bg-white border border-mono-200 rounded-xl overflow-hidden">
-        <ChatWindow messages={messages} loading={loading} onSuggested={handleSend} />
+      <div className="flex-1 grid grid-cols-[240px_1fr] gap-5">
+        <ChatHistory
+          conversations={conversations}
+          activeId={activeConversationId}
+          loading={loadingConversations}
+          onNew={() => handleNewConversation()}
+          onSelect={handleSelectConversation}
+        />
 
-        <div className="border-t border-mono-200 px-6 py-4">
-          <ChatInput
-            input={input}
-            loading={loading}
-            onInput={setInput}
-            onSend={() => handleSend()}
-          />
+        <div className="flex flex-col bg-white border border-mono-200 rounded-xl overflow-hidden">
+          <ChatWindow messages={messages} loading={loading} onSuggested={handleSend} />
+
+          <div className="border-t border-mono-200 px-6 py-4">
+            <ChatInput
+              input={input}
+              loading={loading}
+              onInput={setInput}
+              onSend={() => handleSend()}
+            />
+          </div>
         </div>
       </div>
     </motion.div>
