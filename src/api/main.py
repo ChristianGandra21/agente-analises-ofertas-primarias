@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routes import ofertas, macro, contexto, agente, comparar
+from src.api.routes import ofertas, macro, contexto, agente, comparar, coletar
 from src.database import init_db
 
 app = FastAPI(
@@ -11,7 +11,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://frontend:3000",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -25,6 +28,7 @@ app.include_router(macro.router, prefix="/api")
 app.include_router(contexto.router, prefix="/api")
 app.include_router(agente.router, prefix="/api")
 app.include_router(comparar.router, prefix="/api")
+app.include_router(coletar.router, prefix="/api")
 
 @app.get("/api/status")
 def status():

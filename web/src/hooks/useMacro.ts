@@ -1,45 +1,18 @@
 import useSWR from "swr";
+import { getMacro, getMacroHistorico, getContexto } from "@/lib/api";
 
-interface MacroItem {
-  serie: string;
-  valor: number;
-  data: string;
-}
+export function useMacroPage() {
+  const { data: atual, isLoading: loadingAtual, error: errAtual } =
+    useSWR("/api/macro", getMacro, { refreshInterval: 60_000 });
 
-interface HistoricoSerie {
-  data: string;
-  valor: number;
-}
+  const { data: historico, isLoading: loadingHist, error: errHist } =
+    useSWR("/api/macro/historico", () => getMacroHistorico("selic,ipca", 30), {
+      refreshInterval: 300_000,
+    });
 
-type HistoricoData = Record<string, HistoricoSerie[]>;
+  const { data: contexto, isLoading: loadingCtx, error: errCtx } =
+    useSWR("/api/contexto?limite=9", () => getContexto("", 9));
 
-interface ContextoItem {
-  id: number;
-  tipo: string | null;
-  instituicao: string | null;
-  data_referencia: string | null;
-  resumo_estrategia: string | null;
-  fonte_url: string | null;
-}
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-export function useMacro() {
-  const { data: atual } = useSWR<MacroItem[]>("/api/macro", fetcher, {
-    refreshInterval: 60000,
-  });
-
-  const { data: historico } = useSWR<HistoricoData>(
-    "/api/macro/historico?series=selic,ipca&limite=30",
-    fetcher
-  );
-
-  const { data: contexto } = useSWR<ContextoItem[]>(
-    "/api/contexto?limite=9",
-    fetcher
-  );
-
-  // Merge selic and ipca into chart-friendly format
   const chartData =
     historico?.selic && historico?.ipca
       ? historico.selic.map((s, i) => ({
@@ -49,5 +22,11 @@ export function useMacro() {
         }))
       : [];
 
-  return { atual, chartData, contexto };
+  return {
+    atual,
+    chartData,
+    contexto,
+    loading: loadingAtual || loadingHist || loadingCtx,
+    error: errAtual || errHist || errCtx,
+  };
 }

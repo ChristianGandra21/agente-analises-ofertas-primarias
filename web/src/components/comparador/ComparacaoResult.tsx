@@ -3,8 +3,7 @@
 import { motion } from "framer-motion";
 import { Check, X, ArrowRight } from "@phosphor-icons/react";
 import { RadarChart } from "@/components/charts/RadarChart";
-import type { ComparacaoResult } from "@/lib/types";
-import type { OfertaSchema } from "@/lib/types";
+import type { ComparacaoResponse } from "@/lib/types";
 
 interface RowProps {
   label: string;
@@ -49,7 +48,7 @@ function Row({ label, valA, valB, winner = "neutral", format = "text" }: RowProp
   );
 }
 
-function melhorTaxa(a: OfertaSchema, b: OfertaSchema): "a" | "b" | "neutral" {
+function melhorTaxa(a: ComparacaoResponse["ativo_a"], b: ComparacaoResponse["ativo_b"]): "a" | "b" | "neutral" {
   if (a.taxa_valor == null && b.taxa_valor == null) return "neutral";
   if (a.taxa_valor == null) return "b";
   if (b.taxa_valor == null) return "a";
@@ -58,7 +57,7 @@ function melhorTaxa(a: OfertaSchema, b: OfertaSchema): "a" | "b" | "neutral" {
 }
 
 interface ComparacaoResultProps {
-  data: ComparacaoResult;
+  data: ComparacaoResponse;
 }
 
 export function ComparacaoResultView({ data }: ComparacaoResultProps) {

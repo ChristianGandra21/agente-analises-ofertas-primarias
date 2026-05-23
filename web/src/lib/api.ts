@@ -1,70 +1,71 @@
-import type { OfertaSchema, ComparacaoResult } from "./types";
+import type {
+  OfertaSchema,
+  ComparacaoResponse,
+  MacroItem,
+  ContextoItem,
+  StatusResponse,
+  ChatResponse,
+} from "./types";
 
-export interface Macro {
-  selic: string;
-  ipca: string;
-  usd: string;
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export interface Status {
-  total_ofertas: number;
-  ultima_coleta: string;
-}
-
-export async function getMacro(): Promise<Macro> {
-  const res = await fetch("/api/macro");
-  if (!res.ok) throw new Error("Failed to fetch macro");
-  return res.json();
-}
-
-export async function getOfertas(opts?: {
-  limite?: number;
-}): Promise<OfertaSchema[]> {
-  const params = new URLSearchParams();
-  if (opts?.limite) params.set("limite", String(opts.limite));
-  const res = await fetch(`/api/ofertas?${params}`);
-  if (!res.ok) throw new Error("Failed to fetch ofertas");
-  return res.json();
-}
-
-export async function getStatus(): Promise<Status> {
-  const res = await fetch("/api/status");
-  if (!res.ok) throw new Error("Failed to fetch status");
-  return res.json();
-}
-
-export async function compararOfertas(
-  ativoA: number,
-  ativoB: number
-): Promise<ComparacaoResult> {
-  const res = await fetch("/api/comparar", {
-    method: "POST",
+async function fetcher<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ativo_a: ativoA, ativo_b: ativoB }),
+    ...options,
   });
-  if (!res.ok) throw new Error("Failed to compare");
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 
-export async function mockComparar(
-  a: OfertaSchema,
-  b: OfertaSchema
-): Promise<ComparacaoResult> {
-  const spread =
-    a.taxa_valor != null && b.taxa_valor != null
-      ? Math.round((a.taxa_valor - b.taxa_valor) * 100) / 100
-      : null;
-  return {
-    ativo_a: a,
-    ativo_b: b,
-    spread,
-    vencedor:
-      spread == null
-        ? "empate"
-        : spread > 0
-          ? "a"
-          : spread < 0
-            ? "b"
-            : "empate",
-  };
-}
+export const getStatus = () =>
+  fetcher<StatusResponse>("/api/status");
+
+export const getMacro = () =>
+  fetcher<MacroItem[]>("/api/macro");
+
+export const getMacroHistorico = (
+  series = "selic,ipca,usd_brl",
+  limite = 30
+) =>
+  fetcher<Record<string, { data: string; valor: number }[]>>(
+    `/api/macro/historico?series=${series}&limite=${limite}`
+  );
+
+export const getOfertas = (params?: {
+  tipo?: string;
+  indexador?: string;
+  instituicao?: string;
+  limite?: number;
+}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params ?? {}).filter(
+        ([, v]) => v !== undefined && v !== ""
+      )
+    ) as Record<string, string>
+  ).toString();
+  return fetcher<OfertaSchema[]>(`/api/ofertas${qs ? `?${qs}` : ""}`);
+};
+
+export const getContexto = (tema = "", limite = 9) =>
+  fetcher<ContextoItem[]>(`/api/contexto?tema=${tema}&limite=${limite}`);
+
+export const comparar = (ativo_a_id: number, ativo_b_id: number) =>
+  fetcher<ComparacaoResponse>("/api/comparar", {
+    method: "POST",
+    body: JSON.stringify({ ativo_a: ativo_a_id, ativo_b: ativo_b_id }),
+  });
+
+export const chatAgente = (pergunta: string) =>
+  fetcher<ChatResponse>("/api/agente/chat", {
+    method: "POST",
+    body: JSON.stringify({ pergunta }),
+  });
+
+export const dispararColeta = () =>
+  fetcher<{ status: string; mensagem: string }>("/api/coletar", {
+    method: "POST",
+  });

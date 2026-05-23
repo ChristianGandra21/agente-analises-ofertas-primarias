@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { chatAgente } from "@/lib/api";
+import type { ChatResponse } from "@/lib/types";
 
 export interface Message {
   role: "user" | "agent";
@@ -10,70 +12,70 @@ export interface Message {
   duracao?: number;
 }
 
-export function useChat() {
+export function useChat(initialQuestion?: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const loadingRef = useRef(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = useCallback(
-    async (pergunta?: string) => {
-      const text = (pergunta ?? input).trim();
-      if (!text || loadingRef.current) return;
+  useEffect(() => {
+    if (initialQuestion) handleSend(initialQuestion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      setInput("");
-      setLoading(true);
-      loadingRef.current = true;
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
-      const userMsg: Message = {
-        role: "user",
-        content: text,
-        timestamp: new Date().toLocaleTimeString("pt-BR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setMessages((prev) => [...prev, userMsg]);
+  async function handleSend(pergunta?: string) {
+    const text = (pergunta ?? input).trim();
+    if (!text || loading) return;
 
-      try {
-        const start = Date.now();
-        const res = await fetch("/api/agente/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pergunta: text }),
-        });
-        const data = await res.json();
+    setInput("");
+    setLoading(true);
 
-        const agentMsg: Message = {
+    const ts = new Date().toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: text, timestamp: ts },
+    ]);
+
+    const start = Date.now();
+    try {
+      const data: ChatResponse = await chatAgente(text);
+      setMessages((prev) => [
+        ...prev,
+        {
           role: "agent",
-          content: data.resposta ?? data.detail ?? "Erro ao obter resposta.",
+          content: data.resposta,
           timestamp: new Date().toLocaleTimeString("pt-BR", {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          agentes: data.agentes_acionados ?? ["analista", "contextualista"],
-          duracao: data.duracao_segundos ?? ((Date.now() - start) / 1000),
-        };
-        setMessages((prev) => [...prev, agentMsg]);
-      } catch {
-        const agentMsg: Message = {
+          agentes: data.agentes_acionados,
+          duracao: parseFloat(((Date.now() - start) / 1000).toFixed(1)),
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
           role: "agent",
-          content: "Desculpe, não foi possível obter uma resposta no momento. Tente novamente.",
+          content: "Erro ao consultar o agente. Tente novamente.",
           timestamp: new Date().toLocaleTimeString("pt-BR", {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          agentes: [],
-          duracao: 0,
-        };
-        setMessages((prev) => [...prev, agentMsg]);
-      } finally {
-        setLoading(false);
-        loadingRef.current = false;
-      }
-    },
-    [input]
-  );
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  return { messages, input, setInput, loading, handleSend };
+  return { messages, input, setInput, loading, handleSend, bottomRef };
 }

@@ -1,33 +1,84 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Warning } from "@phosphor-icons/react";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { TaxaBarChart } from "@/components/charts/TaxaBarChart";
 import { OfertasTable } from "@/components/ui/OfertasTable";
+import { useOverview } from "@/hooks/useOverview";
 
-const MOCK_MACRO = {
-  selic: "14,75%",
-  ipca: "0,43%",
-  usd: "R$ 5,87",
-};
+function LoadingDots() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <motion.div
+            key={i}
+            className="w-2 h-2 bg-btg-800 rounded-full"
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
-const MOCK_OFERTAS = [
-  { emissor: "Banco BTG Pactual", tipo: "CDB", indexador: "CDI+", taxa: 14.80, vencimento: "abr/2030", fonte: "BTG", com_fgc: true },
-  { emissor: "Vale S.A.", tipo: "DEB", indexador: "CDI+", taxa: 13.20, vencimento: "jun/2029", fonte: "XP", com_fgc: false },
-  { emissor: "Itaú Unibanco", tipo: "CDB", indexador: "IPCA+", taxa: 11.50, vencimento: "dez/2031", fonte: "Itaú", com_fgc: true },
-  { emissor: "BR Properties", tipo: "CRI", indexador: "IPCA+", taxa: 11.00, vencimento: "mar/2032", fonte: "BTG", com_fgc: false },
-  { emissor: "Rumo Logística", tipo: "CRA", indexador: "CDI+", taxa: 14.20, vencimento: "set/2028", fonte: "XP", com_fgc: false },
-  { emissor: "Caixa Econômica", tipo: "LCI", indexador: "CDI+", taxa: 10.80, vencimento: "out/2027", fonte: "BTG", com_fgc: true },
-];
+function buildMetrics(macro: { serie: string; valor: number }[] | undefined, total: number | undefined) {
+  const selic = macro?.find((m) => m.serie === "selic");
+  const ipca = macro?.find((m) => m.serie === "ipca");
+  const usd = macro?.find((m) => m.serie === "usd_brl");
 
-const METRICS = [
-  { label: "SELIC", value: MOCK_MACRO.selic, delta: "+0,25 pp", trend: "up" as const, subtitle: "a.a. · última reunião" },
-  { label: "IPCA", value: MOCK_MACRO.ipca, delta: "estável", trend: "neutral" as const, subtitle: "mensal · acum. 12m 4,2%" },
-  { label: "USD/BRL", value: MOCK_MACRO.usd, delta: "-0,12", trend: "down" as const, subtitle: "Ptax · fechamento" },
-  { label: "OFERTAS", value: "9.178", delta: undefined, trend: "neutral" as const, subtitle: "ativos no banco de dados", borderColor: "#C8A951" },
-];
+  return [
+    {
+      label: "SELIC",
+      value: selic ? `${(selic.valor * 100 * 252).toFixed(2)}%` : "—",
+      delta: "+0,25 pp",
+      trend: "up" as const,
+      subtitle: "a.a. · última reunião",
+    },
+    {
+      label: "IPCA",
+      value: ipca ? `${(ipca.valor * 100).toFixed(2)}%` : "—",
+      delta: "estável",
+      trend: "neutral" as const,
+      subtitle: "mensal · acum. 12m 4,2%",
+    },
+    {
+      label: "USD/BRL",
+      value: usd ? `R$ ${usd.valor.toFixed(2)}` : "—",
+      delta: "-0,12",
+      trend: "down" as const,
+      subtitle: "Ptax · fechamento",
+    },
+    {
+      label: "OFERTAS",
+      value: total != null ? total.toLocaleString("pt-BR") : "—",
+      delta: undefined,
+      trend: "neutral" as const,
+      subtitle: "ativos no banco de dados",
+      borderColor: "#C8A951" as const,
+    },
+  ];
+}
 
 export default function OverviewPage() {
+  const { status, macro, ofertas, loading, error } = useOverview();
+  const total = status?.total_ofertas;
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-[#C0392B] text-sm font-sora p-4 bg-red-50 rounded-lg">
+        <Warning size={16} />
+        {error.message}
+      </div>
+    );
+  }
+
+  if (loading) return <LoadingDots />;
+
+  const metrics = buildMetrics(macro, total);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -44,12 +95,12 @@ export default function OverviewPage() {
           </p>
         </div>
         <span className="font-dm-mono text-xs text-mono-300 uppercase tracking-widest mt-1">
-          10 ATIVOS MONITORADOS
+          {total ?? "—"} ATIVOS MONITORADOS
         </span>
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
-        {METRICS.map((m, i) => (
+        {metrics.map((m, i) => (
           <motion.div
             key={m.label}
             initial={{ opacity: 0, y: 16 }}
@@ -78,10 +129,26 @@ export default function OverviewPage() {
               ÚLTIMAS OFERTAS
             </span>
             <span className="font-dm-mono text-xs text-mono-300">
-              Atualizado 16:30
+              Atualizado {status ? "16:30" : "—"}
             </span>
           </div>
-          <OfertasTable data={MOCK_OFERTAS} />
+          {ofertas && ofertas.length > 0 ? (
+            <OfertasTable
+              data={ofertas.map((o) => ({
+                emissor: o.emissor ?? "—",
+                tipo: o.tipo ?? "—",
+                indexador: o.indexador ?? "—",
+                taxa: o.taxa_valor ?? 0,
+                vencimento: o.data_vencimento ?? "—",
+                fonte: o.fonte,
+                com_fgc: o.com_fgc ?? false,
+              }))}
+            />
+          ) : (
+            <div className="text-center py-12 text-mono-300 font-sora text-sm">
+              Nenhuma oferta disponível
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

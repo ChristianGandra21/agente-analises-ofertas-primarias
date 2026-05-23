@@ -19,3 +19,34 @@ export interface ComparacaoResult {
   spread: number | null;
   vencedor: "a" | "b" | "empate";
 }
+
+export interface ComparacaoResponse extends ComparacaoResult {
+  resumo: string;
+}
+
+export interface MacroItem {
+  serie: string;
+  valor: number;
+  data: string;
+}
+
+export interface ContextoItem {
+  id: number;
+  tipo: string | null;
+  instituicao: string | null;
+  data_referencia: string | null;
+  resumo_estrategia: string | null;
+  fonte_url: string | null;
+}
+
+export interface StatusResponse {
+  status: string;
+  total_ofertas: number;
+}
+
+export interface ChatResponse {
+  resposta: string;
+  valida: boolean;
+  agentes_acionados: string[];
+  duracao_segundos: number;
+}

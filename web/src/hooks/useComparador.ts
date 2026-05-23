@@ -1,30 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import type { OfertaSchema, ComparacaoResult } from "@/lib/types";
+import { comparar } from "@/lib/api";
+import type { OfertaSchema, ComparacaoResponse } from "@/lib/types";
 
 export function useComparador() {
   const [ativoA, setAtivoA] = useState<OfertaSchema | null>(null);
   const [ativoB, setAtivoB] = useState<OfertaSchema | null>(null);
-  const [resultado, setResultado] = useState<ComparacaoResult | null>(null);
+  const [resultado, setResultado] = useState<ComparacaoResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function comparar() {
+  async function executarComparacao() {
     if (!ativoA || !ativoB) return;
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch("/api/comparar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ativo_a: ativoA.id, ativo_b: ativoB.id }),
-      });
-      if (!res.ok) throw new Error("Falha ao comparar");
-      const data: ComparacaoResult = await res.json();
-      setResultado(data);
+      const res = await comparar(ativoA.id, ativoB.id);
+      setResultado(res);
     } catch {
-      const { mockComparar } = await import("@/lib/api");
-      const data = await mockComparar(ativoA, ativoB);
-      setResultado(data);
+      setError("Erro ao comparar ativos. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -34,7 +29,18 @@ export function useComparador() {
     setAtivoA(null);
     setAtivoB(null);
     setResultado(null);
+    setError(null);
   }
 
-  return { ativoA, ativoB, setAtivoA, setAtivoB, resultado, loading, comparar, reset };
+  return {
+    ativoA,
+    setAtivoA,
+    ativoB,
+    setAtivoB,
+    resultado,
+    loading,
+    error,
+    executarComparacao,
+    reset,
+  };
 }
