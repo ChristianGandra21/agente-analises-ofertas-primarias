@@ -1,20 +1,57 @@
+import re
 from langchain_core.tools import tool
 from src.database import get_session, Oferta
+from sqlalchemy import or_, case
+
+
+def _extrair_indexador_texto(taxa_bruta: str | None) -> str | None:
+    """Deriva indexador do texto da taxa bruta."""
+    if not taxa_bruta:
+        return None
+    upper = taxa_bruta.upper()
+    if "CDI" in upper:
+        return "CDI+"
+    if "IPCA" in upper:
+        return "IPCA+"
+    if "SELIC" in upper:
+        return "Selic"
+    if re.search(r"\d+[.,]\d+\s*%", upper):
+        return "Prefixado"
+    return None
+
+
+def _formatar_oferta(o: Oferta) -> str:
+    """Formata uma oferta em texto legível para o LLM."""
+    indexador = o.indexador or _extrair_indexador_texto(o.taxa_bruta) or "N/D"
+    return (
+        f"[{o.tipo or 'N/D'}] {o.nome or o.emissor or 'Sem nome'} "
+        f"| Emissor: {o.emissor or 'N/D'} "
+        f"| Distribuidor: {o.instituicao or 'N/D'} "
+        f"| Indexador: {indexador} "
+        f"| Taxa: {o.taxa_bruta or 'N/D'}"
+        + (f" ({o.taxa_valor:.2f}% a.a.)" if o.taxa_valor else "")
+        + f" | Venc: {o.data_vencimento or 'N/D'}"
+        f" | FGC: {'Sim' if o.com_fgc else 'Não'}"
+        f" | IR: {'Isento' if o.isento_ir else 'Tributado'}"
+    )
 
 
 @tool
 def buscar_oferta_por_nome(nome: str) -> str:
     """
-    Busca uma oferta específica pelo nome do ativo ou emissor.
-    Use quando o usuário mencionar um ativo específico como 'CDB C6' ou 'CRA Marfrig'.
+    Busca uma oferta específica pelo nome do ativo, emissor ou parte do nome.
+    Use quando o usuário mencionar um ativo específico como 'CRA FS BIO', 'CCB Allu' ou qualquer nome parcial.
     """
     with get_session() as session:
         ofertas = (
             session.query(Oferta)
             .filter(
-                (Oferta.nome.ilike(f"%{nome}%")) |
-                (Oferta.emissor.ilike(f"%{nome}%"))
+                or_(
+                    Oferta.nome.ilike(f"%{nome}%"),
+                    Oferta.emissor.ilike(f"%{nome}%"),
+                )
             )
+            .order_by(Oferta.taxa_valor.desc().nullslast())
             .limit(5)
             .all()
         )
@@ -22,103 +59,141 @@ def buscar_oferta_por_nome(nome: str) -> str:
         if not ofertas:
             return f"Nenhuma oferta encontrada para '{nome}'."
 
-        resultado = []
-        for o in ofertas:
-            resultado.append(
-                f"{o.nome or o.emissor} ({o.instituicao})\n"
-                f"  Tipo: {o.tipo} | Indexador: {o.indexador}\n"
-                f"  Taxa: {o.taxa_bruta} | Vencimento: {o.data_vencimento}\n"
-                f"  FGC: {'Sim' if o.com_fgc else 'Não'} | IR: {'Isento' if o.isento_ir else 'Tributado'}"
-            )
-        return "\n\n".join(resultado)
+        return "\n\n".join(_formatar_oferta(o) for o in ofertas)
 
 
 @tool
 def consultar_ofertas(
     tipo: str = "",
     indexador: str = "",
-    instituicao: str = ""
+    instituicao: str = "",
+    nome_busca: str = "",
 ) -> str:
     """
     Consulta ofertas primárias de renda fixa no banco de dados.
-    Use para buscar e comparar ofertas por tipo de ativo, indexador ou instituição.
-    Exemplos: tipo='CDB', indexador='IPCA', instituicao='BTG'
+
+    Use para buscar e comparar ofertas filtradas. Os dados disponíveis no banco são principalmente
+    CRAs (Certificados de Recebíveis do Agronegócio) e CCBs (Cédulas de Crédito Bancário).
+
+    Parâmetros:
+    - tipo: tipo do ativo. Ex: 'CRA', 'CCB', 'CDB', 'CRI', 'LCI', 'LCA'
+    - indexador: 'CDI', 'IPCA', 'Prefixado', 'Selic'
+    - instituicao: nome da instituição distribuidora. Ex: 'XP', 'BTG', 'MOVA'
+    - nome_busca: busca livre no nome do ativo ou emissor
+
+    IMPORTANTE: Se não houver resultados com filtros específicos, tente com menos filtros ou nome_busca vazio.
     """
     with get_session() as session:
         query = session.query(Oferta)
 
-        # Apenas ofertas com taxa por padrão
+        # Filtro de taxa_bruta presente (tem informação de taxa)
         query = query.filter(Oferta.taxa_bruta.isnot(None))
 
         if tipo:
-            query = query.filter(Oferta.tipo.ilike(f"%{tipo}%"))
+            query = query.filter(
+                or_(
+                    Oferta.tipo.ilike(f"%{tipo}%"),
+                    Oferta.nome.ilike(f"%{tipo}%"),
+                )
+            )
         if indexador:
-            query = query.filter(Oferta.indexador.ilike(f"%{indexador}%"))
+            idx_map = {"CDI": "CDI", "IPCA": "IPCA", "SELIC": "Selic", "PREFIXADO": "Prefixado"}
+            idx_norm = idx_map.get(indexador.upper(), indexador)
+            query = query.filter(
+                or_(
+                    Oferta.indexador.ilike(f"%{idx_norm}%"),
+                    Oferta.taxa_bruta.ilike(f"%{indexador}%"),
+                )
+            )
         if instituicao:
             query = query.filter(Oferta.instituicao.ilike(f"%{instituicao}%"))
+        if nome_busca:
+            query = query.filter(
+                or_(
+                    Oferta.nome.ilike(f"%{nome_busca}%"),
+                    Oferta.emissor.ilike(f"%{nome_busca}%"),
+                )
+            )
 
-        ofertas = query.limit(20).all()
+        # Ordena: com taxa_valor primeiro (desc), depois sem taxa_valor
+        query = query.order_by(
+            Oferta.taxa_valor.desc().nullslast(),
+            Oferta.id.desc(),
+        )
+        ofertas = query.limit(15).all()
 
         if not ofertas:
-            filtros = []
+            filtros_usados = []
             if tipo:
-                filtros.append(f"tipo='{tipo}'")
+                filtros_usados.append(f"tipo='{tipo}'")
             if indexador:
-                filtros.append(f"indexador='{indexador}'")
+                filtros_usados.append(f"indexador='{indexador}'")
             if instituicao:
-                filtros.append(f"instituicao='{instituicao}'")
-            desc = ", ".join(filtros) if filtros else "sem filtro"
+                filtros_usados.append(f"instituição='{instituicao}'")
+            if nome_busca:
+                filtros_usados.append(f"nome='{nome_busca}'")
+            desc = ", ".join(filtros_usados) if filtros_usados else "sem filtro"
             return (
-                f"RESULTADO: Nenhuma oferta encontrada no banco de dados com os critérios: {desc}. "
-                f"NÃO sugira alternativas nem invente dados — informe ao usuário que não há ofertas "
-                f"do tipo solicitado na base atual."
+                f"Nenhuma oferta encontrada com os critérios: {desc}. "
+                f"O banco de dados possui atualmente CRAs (pós-fixados CDI+ e prefixados) e CCBs. "
+                f"Tente buscar sem filtros ou com tipo='CRA'."
             )
 
-        resultado = []
-        for oferta in ofertas:
-            linha = (
-                f"[TIPO: {oferta.tipo or 'N/D'}] "
-                f"{oferta.nome} | "
-                f"Indexador: {oferta.indexador or 'N/D'} | "
-                f"Taxa: {oferta.taxa_bruta or 'N/D'} | "
-                f"Venc: {oferta.data_vencimento or 'N/D'} | "
-                f"Emissor: {oferta.emissor or 'N/D'} | "
-                f"Distribuidor: {oferta.instituicao or 'N/D'} | "
-                f"FGC: {'Sim' if oferta.com_fgc else 'Não'} | "
-                f"Isento IR: {'Sim' if oferta.isento_ir else 'Não'}"
-            )
-            resultado.append(linha)
-        return "\n".join(resultado)
+        linhas = [f"Encontradas {len(ofertas)} oferta(s):\n"]
+        linhas.extend(_formatar_oferta(o) for o in ofertas)
+        return "\n".join(linhas)
+
 
 @tool
 def comparar_taxas(ativo_a: str, ativo_b: str) -> str:
     """
     Compara as taxas de dois ativos e calcula o spread entre eles.
     Use quando o usuário quiser saber a diferença de rentabilidade entre dois investimentos.
-    Exemplos: ativo_a='CDB BTG', ativo_b='CDB XP'
+    Exemplos: ativo_a='CRA FS BIO', ativo_b='CRA FS FLORESTAL'
     """
     with get_session() as session:
         a = (
             session.query(Oferta)
-            .filter(Oferta.nome.ilike(f"%{ativo_a}%"))
+            .filter(
+                or_(
+                    Oferta.nome.ilike(f"%{ativo_a}%"),
+                    Oferta.emissor.ilike(f"%{ativo_a}%"),
+                )
+            )
+            .order_by(Oferta.taxa_valor.desc().nullslast())
             .first()
         )
         b = (
             session.query(Oferta)
-            .filter(Oferta.nome.ilike(f"%{ativo_b}%"))
+            .filter(
+                or_(
+                    Oferta.nome.ilike(f"%{ativo_b}%"),
+                    Oferta.emissor.ilike(f"%{ativo_b}%"),
+                )
+            )
+            .order_by(Oferta.taxa_valor.desc().nullslast())
             .first()
         )
 
-        if not a or not b:
-            return "Um ou ambos os ativos não foram encontrados."
+        if not a:
+            return f"Ativo '{ativo_a}' não encontrado no banco de dados."
+        if not b:
+            return f"Ativo '{ativo_b}' não encontrado no banco de dados."
+
+        nome_a = a.nome or a.emissor or "Ativo A"
+        nome_b = b.nome or b.emissor or "Ativo B"
 
         if a.taxa_valor is None or b.taxa_valor is None:
-            return f"Taxa numérica não disponível para comparação.\n{a.nome}: {a.taxa_bruta}\n{b.nome}: {b.taxa_bruta}"
+            return (
+                f"{nome_a}: {a.taxa_bruta or 'taxa indisponível'}\n"
+                f"{nome_b}: {b.taxa_bruta or 'taxa indisponível'}\n"
+                f"Spread numérico não calculável — taxa_valor ausente."
+            )
 
         spread = a.taxa_valor - b.taxa_valor
+        vencedor = nome_a if spread > 0 else nome_b if spread < 0 else "Empate"
         return (
-            f"{a.nome}: {a.taxa_bruta}\n"
-            f"{b.nome}: {b.taxa_bruta}\n"
-            f"Spread: {spread:.2f}%"
+            f"{nome_a}: {a.taxa_bruta} ({a.taxa_valor:.2f}% a.a.)\n"
+            f"{nome_b}: {b.taxa_bruta} ({b.taxa_valor:.2f}% a.a.)\n"
+            f"Spread: {abs(spread):.2f} pp | Melhor taxa: {vencedor}"
         )
-    

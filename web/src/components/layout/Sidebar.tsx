@@ -16,7 +16,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const [atualizando, setAtualizando] = useState(false);
-  const [ultimaColeta, setUltimaColeta] = useState("21/05/2026 16:30");
+  const [ultimaColeta, setUltimaColeta] = useState<string | null>(null);
   const { mutate } = useSWRConfig();
 
   async function handleAtualizar() {
@@ -92,10 +92,10 @@ export function Sidebar() {
 
       <div className="px-5 py-6 border-t border-white/10">
         <p className="font-dm-mono text-[10px] uppercase tracking-wider text-white/40">
-          ÚLTIMA COLETA
+          DADOS ATUALIZADOS
         </p>
         <p className="font-dm-mono text-[11px] text-white/70 mt-1">
-          {ultimaColeta}
+          {ultimaColeta ?? "Nunca atualizado"}
         </p>
         <button
           onClick={handleAtualizar}

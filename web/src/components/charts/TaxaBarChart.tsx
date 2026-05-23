@@ -9,36 +9,101 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
+import useSWR from "swr";
+import { getOfertas } from "@/lib/api";
+import type { OfertaSchema } from "@/lib/types";
 
-const data = [
-  { name: "CDB CDI+", taxa: 14.8 },
-  { name: "CDB IPCA+", taxa: 11.2 },
-  { name: "CDB Pré", taxa: 13.5 },
-  { name: "CRA IPCA+", taxa: 11.0 },
-  { name: "LCI", taxa: 10.8 },
-  { name: "DEB", taxa: 10.4 },
-];
+// Calcula taxa média por agrupamento de indexador a partir das ofertas reais
+function buildChartData(ofertas: OfertaSchema[]) {
+  const grupos: Record<string, { soma: number; count: number; cor: string }> = {
+    "CDI+":      { soma: 0, count: 0, cor: "#003087" },
+    "IPCA+":     { soma: 0, count: 0, cor: "#C8A951" },
+    "Prefixado": { soma: 0, count: 0, cor: "#6B6E7A" },
+    "Selic":     { soma: 0, count: 0, cor: "#0D7A4E" },
+  };
 
-const BAR_COLORS: Record<string, string> = {
-  "CDB CDI+": "#003087",
-  "CDB IPCA+": "#C8A951",
-  "CDB Pré": "#6B6E7A",
-  "CRA IPCA+": "#C8A951",
-  "LCI": "#0D7A4E",
-  "DEB": "#003087",
-};
+  for (const o of ofertas) {
+    if (o.taxa_valor == null) continue;
+    const idx = o.indexador ?? "";
+    const upper = idx.toUpperCase();
+    let grupo: string | null = null;
+
+    if (upper.includes("CDI"))   grupo = "CDI+";
+    else if (upper.includes("IPCA"))  grupo = "IPCA+";
+    else if (upper.includes("SELIC")) grupo = "Selic";
+    else if (upper.includes("PREF") || upper.includes("PRÉ")) grupo = "Prefixado";
+
+    // Tenta derivar do taxa_bruta se indexador for nulo
+    if (!grupo && o.taxa_bruta) {
+      const tb = o.taxa_bruta.toUpperCase();
+      if (tb.includes("CDI"))   grupo = "CDI+";
+      else if (tb.includes("IPCA"))  grupo = "IPCA+";
+      else if (tb.includes("SELIC")) grupo = "Selic";
+      else grupo = "Prefixado";
+    }
+
+    if (grupo && grupos[grupo]) {
+      grupos[grupo].soma += o.taxa_valor;
+      grupos[grupo].count += 1;
+    }
+  }
+
+  return Object.entries(grupos)
+    .filter(([, g]) => g.count > 0)
+    .map(([name, g]) => ({
+      name,
+      taxa: parseFloat((g.soma / g.count).toFixed(2)),
+      cor: g.cor,
+      count: g.count,
+    }));
+}
 
 export function TaxaBarChart() {
+  const { data: ofertas, isLoading } = useSWR(
+    "/api/ofertas?all=1",
+    () => getOfertas({ limite: 9999 }),
+    { revalidateOnFocus: false }
+  );
+
+  const chartData = buildChartData(ofertas ?? []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[280px]">
+        <div className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="w-2 h-2 bg-btg-800 rounded-full animate-pulse"
+              style={{ animationDelay: `${i * 0.2}s` }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[280px] text-mono-300 font-sora text-sm">
+        Sem dados de taxa disponíveis
+      </div>
+    );
+  }
+
+  const minTaxa = Math.max(0, Math.floor(Math.min(...chartData.map((d) => d.taxa)) - 1));
+  const maxTaxa = Math.ceil(Math.max(...chartData.map((d) => d.taxa)) + 1);
+
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart
         layout="vertical"
-        data={data}
-        margin={{ left: 80, right: 40, top: 8, bottom: 8 }}
+        data={chartData}
+        margin={{ left: 80, right: 50, top: 8, bottom: 8 }}
       >
         <XAxis
           type="number"
-          domain={[9, 16]}
+          domain={[minTaxa, maxTaxa]}
           tickFormatter={(v: number) => `${v}%`}
           tick={{
             fontFamily: "DM Mono",
@@ -56,7 +121,10 @@ export function TaxaBarChart() {
           }}
         />
         <Tooltip
-          formatter={(v: unknown) => [`${Number(v).toFixed(2)}% a.a.`, "Taxa média"]}
+          formatter={(v: unknown, _: unknown, props: { payload?: { count?: number } }) => [
+            `${Number(v).toFixed(2)}% a.a. (média de ${props.payload?.count ?? "?"} ativo(s))`,
+            "Taxa média",
+          ]}
           contentStyle={{
             fontFamily: "Sora",
             fontSize: 12,
@@ -64,8 +132,8 @@ export function TaxaBarChart() {
           }}
         />
         <Bar dataKey="taxa" radius={[0, 4, 4, 0]}>
-          {data.map((entry, i) => (
-            <Cell key={i} fill={BAR_COLORS[entry.name] ?? "#003087"} />
+          {chartData.map((entry, i) => (
+            <Cell key={i} fill={entry.cor} />
           ))}
         </Bar>
       </BarChart>

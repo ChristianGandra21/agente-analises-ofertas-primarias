@@ -6,6 +6,8 @@ import { ChatWindow } from "@/components/chat/ChatWindow";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatHistory } from "@/components/chat/ChatHistory";
 import { useChat } from "@/hooks/useChat";
+import { getStatus } from "@/lib/api";
+import useSWR from "swr";
 
 export default function AgentePage() {
   const {
@@ -20,6 +22,17 @@ export default function AgentePage() {
     handleNewConversation,
     handleSelectConversation,
   } = useChat();
+
+  const { data: status, error: statusError } = useSWR(
+    "/api/status",
+    getStatus,
+    { refreshInterval: 30_000 }
+  );
+
+  const agentStatus =
+    statusError ? "offline"
+    : !status ? "processing"
+    : "online";
 
   return (
     <motion.div
@@ -38,7 +51,7 @@ export default function AgentePage() {
           </p>
         </div>
         <div className="flex items-center gap-3 mt-1">
-          <StatusPill status="online" />
+          <StatusPill status={agentStatus} />
           <span className="font-dm-mono text-[11px] text-mono-600 bg-mono-50 border border-mono-200 rounded-md px-2.5 py-1">
             LLaMA 3.3 · Groq
           </span>

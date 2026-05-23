@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { getMacro, getOfertas, getStatus } from "@/lib/api";
+import { getMacro, getMacroHistorico, getOfertas, getStatus } from "@/lib/api";
 
 export function useOverview() {
   const { data: status, isLoading: loadingStatus, error: errStatus } =
@@ -7,6 +7,14 @@ export function useOverview() {
 
   const { data: macro, isLoading: loadingMacro, error: errMacro } =
     useSWR("/api/macro", getMacro, { refreshInterval: 60_000 });
+
+  // Busca os últimos 2 valores de selic e ipca para calcular variação real
+  const { data: historicoMacro, isLoading: loadingHist } =
+    useSWR(
+      "/api/macro/historico?series=selic,ipca&limite=2",
+      () => getMacroHistorico("selic,ipca", 2),
+      { refreshInterval: 300_000 }
+    );
 
   const { data: ofertas, isLoading: loadingOfertas, error: errOfertas } =
     useSWR("/api/ofertas?limite=10", () => getOfertas({ limite: 10 }), {
@@ -16,8 +24,9 @@ export function useOverview() {
   return {
     status,
     macro,
+    historicoMacro,
     ofertas,
-    loading: loadingStatus || loadingMacro || loadingOfertas,
+    loading: loadingStatus || loadingMacro || loadingHist || loadingOfertas,
     error: errStatus || errMacro || errOfertas,
   };
 }
