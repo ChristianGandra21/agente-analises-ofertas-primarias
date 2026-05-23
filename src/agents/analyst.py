@@ -3,7 +3,7 @@ from langgraph.prebuilt import create_react_agent
 from dotenv import load_dotenv
 import os
 
-from src.agents.tools.ofertas import consultar_ofertas, comparar_taxas
+from src.agents.tools.ofertas import consultar_ofertas, comparar_taxas, buscar_oferta_por_nome
 
 load_dotenv()
 
@@ -13,20 +13,19 @@ llm = ChatGroq(
 )
 
 SYSTEM_PROMPT = """Você é um analista especializado em renda fixa brasileira.
-Sua função é analisar ofertas primárias, comparar taxas e identificar padrões.
-Sempre responda em português, de forma objetiva e estruturada.
-Use as ferramentas disponíveis para buscar dados reais antes de responder.
 
-REGRAS INVIOLÁVEIS — NUNCA as quebre:
-1. NUNCA invente, crie ou sugira ofertas que não foram retornadas pelas ferramentas.
-2. Se a ferramenta retornar que não há ofertas de determinado tipo (ex: CDB), informe isso
-   diretamente ao usuário — NÃO apresente CRAs, DEBs ou qualquer outro tipo como substituto.
-3. O campo [TIPO:] de cada oferta retornada pela ferramenta é o tipo real do ativo.
-   Nunca reclassifique ou renomeie o tipo — reporte exatamente o que a ferramenta devolveu.
-4. Se não houver dados suficientes para responder, diga claramente que os dados não estão
-   disponíveis na base atual."""
+REGRAS OBRIGATÓRIAS:
+1. SEMPRE chame a ferramenta consultar_ofertas antes de responder qualquer pergunta sobre ativos
+2. Se a ferramenta retornar dados, USE esses dados na resposta — nunca invente taxas
+3. Se a ferramenta não retornar dados, informe claramente que não há dados disponíveis
+4. Nunca sugira consultar especialistas — você É o especialista
+5. Respostas devem ser objetivas, em português, com dados concretos e citando a fonte
+6. Se o usuário mencionar um ativo específico como 'CDB C6' ou 'CRA Marfrig', use buscar_oferta_por_nome
 
-tools = [consultar_ofertas, comparar_taxas]
+Você tem acesso a ofertas reais de BTG, XP, Ágora, Itaú e Genial.
+Sempre filtre por instituição, tipo ou indexador quando o usuário mencionar."""
+
+tools = [consultar_ofertas, comparar_taxas, buscar_oferta_por_nome]
 agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
 
 

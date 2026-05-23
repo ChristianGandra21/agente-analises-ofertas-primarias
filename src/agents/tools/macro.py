@@ -4,17 +4,16 @@ from src.database import get_session, IndicadorMacro
 # Unidades de cada série, para exibição clara ao LLM
 _UNIDADES = {
     "selic":   "% a.a.",
-    "ipca":    "% (mensal)",
+    "ipca":    "% a.a. (acum. 12m)",
     "usd_brl": "BRL por USD",
 }
 
 @tool
 def consultar_macro() -> str:
     """
-    Retorna os últimos valores de Selic (% a.a.), IPCA (% mensal) e câmbio USD/BRL.
+    Retorna os últimos valores de Selic (% a.a.), IPCA (% a.a. acum. 12m) e câmbio USD/BRL.
     Use quando precisar de contexto macroeconômico para explicar variações de taxa.
-    IMPORTANTE: os valores já estão em percentual anual (Selic) e percentual mensal (IPCA),
-    nunca os trate como decimais ou taxas diárias.
+    IMPORTANTE: os valores já estão em percentual anual — nunca os trate como decimais.
     """
     with get_session() as session:
         resultado = []

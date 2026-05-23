@@ -1,6 +1,38 @@
 from langchain_core.tools import tool
 from src.database import get_session, Oferta
 
+
+@tool
+def buscar_oferta_por_nome(nome: str) -> str:
+    """
+    Busca uma oferta específica pelo nome do ativo ou emissor.
+    Use quando o usuário mencionar um ativo específico como 'CDB C6' ou 'CRA Marfrig'.
+    """
+    with get_session() as session:
+        ofertas = (
+            session.query(Oferta)
+            .filter(
+                (Oferta.nome.ilike(f"%{nome}%")) |
+                (Oferta.emissor.ilike(f"%{nome}%"))
+            )
+            .limit(5)
+            .all()
+        )
+
+        if not ofertas:
+            return f"Nenhuma oferta encontrada para '{nome}'."
+
+        resultado = []
+        for o in ofertas:
+            resultado.append(
+                f"{o.nome or o.emissor} ({o.instituicao})\n"
+                f"  Tipo: {o.tipo} | Indexador: {o.indexador}\n"
+                f"  Taxa: {o.taxa_bruta} | Vencimento: {o.data_vencimento}\n"
+                f"  FGC: {'Sim' if o.com_fgc else 'Não'} | IR: {'Isento' if o.isento_ir else 'Tributado'}"
+            )
+        return "\n\n".join(resultado)
+
+
 @tool
 def consultar_ofertas(
     tipo: str = "",
@@ -14,6 +46,9 @@ def consultar_ofertas(
     """
     with get_session() as session:
         query = session.query(Oferta)
+
+        # Apenas ofertas com taxa por padrão
+        query = query.filter(Oferta.taxa_bruta.isnot(None))
 
         if tipo:
             query = query.filter(Oferta.tipo.ilike(f"%{tipo}%"))

@@ -32,14 +32,14 @@ function buildMetrics(macro: { serie: string; valor: number }[] | undefined, tot
   return [
     {
       label: "SELIC",
-      value: selic ? `${(selic.valor * 100 * 252).toFixed(2)}%` : "—",
+      value: selic ? `${selic.valor.toFixed(2)}%` : "—",
       delta: "+0,25 pp",
       trend: "up" as const,
       subtitle: "a.a. · última reunião",
     },
     {
       label: "IPCA",
-      value: ipca ? `${(ipca.valor * 100).toFixed(2)}%` : "—",
+      value: ipca ? `${ipca.valor.toFixed(2)}%` : "—",
       delta: "estável",
       trend: "neutral" as const,
       subtitle: "mensal · acum. 12m 4,2%",

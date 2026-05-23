@@ -17,8 +17,8 @@ export function useMacroPage() {
     historico?.selic && historico?.ipca
       ? historico.selic.map((s, i) => ({
           data: s.data,
-          selic: s.valor * 100 * 252,
-          ipca: (historico.ipca[i]?.valor ?? 0) * 100,
+          selic: s.valor,
+          ipca: historico.ipca[i]?.valor ?? 0,
         }))
       : [];
 

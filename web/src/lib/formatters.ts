@@ -1,7 +1,15 @@
-export function formatMacro(serie: string, valor: number): string {
+export function formatMacroValor(serie: string, valor: number): string {
   if (serie === "usd_brl") return `R$ ${valor.toFixed(2)}`;
-  if (serie === "selic") return `${(valor * 100).toFixed(4)}%`;
   return `${valor.toFixed(2)}%`;
+}
+
+export function formatMacroSubtitle(serie: string): string {
+  const map: Record<string, string> = {
+    selic: "a.a. · última reunião",
+    ipca: "acum. 12m · IBGE",
+    usd_brl: "Ptax · fechamento",
+  };
+  return map[serie] ?? "";
 }
 
 const MESES = [

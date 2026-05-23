@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { House, Scales, Robot, ChartLine, ArrowsClockwise } from "@phosphor-icons/react";
 import { usePathname } from "next/navigation";
+import { useSWRConfig } from "swr";
+import { dispararColeta } from "@/lib/api";
 
 const NAV_ITEMS = [
   { label: "Visão Geral", icon: House, href: "/overview" },
@@ -12,6 +15,46 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [atualizando, setAtualizando] = useState(false);
+  const [ultimaColeta, setUltimaColeta] = useState("21/05/2026 16:30");
+  const { mutate } = useSWRConfig();
+
+  async function handleAtualizar() {
+    if (atualizando) return;
+    setAtualizando(true);
+
+    try {
+      await dispararColeta();
+
+      let tentativas = 0;
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const poll = setInterval(async () => {
+        tentativas++;
+        try {
+          const res = await fetch(`${API_BASE}/api/coletar/status`);
+          const data = await res.json();
+          if (data.status !== "running" || tentativas > 20) {
+            clearInterval(poll);
+            setAtualizando(false);
+            mutate("/api/status");
+            mutate("/api/macro");
+            mutate((key: string) => key.startsWith("/api/ofertas") || key.startsWith("/api/contexto"));
+            setUltimaColeta(
+              new Date().toLocaleString("pt-BR", {
+                day: "2-digit", month: "2-digit", year: "numeric",
+                hour: "2-digit", minute: "2-digit",
+              })
+            );
+          }
+        } catch {
+          clearInterval(poll);
+          setAtualizando(false);
+        }
+      }, 2000);
+    } catch {
+      setAtualizando(false);
+    }
+  }
 
   return (
     <aside className="w-[220px] min-h-screen bg-btg-900 flex flex-col shrink-0">
@@ -52,11 +95,19 @@ export function Sidebar() {
           ÚLTIMA COLETA
         </p>
         <p className="font-dm-mono text-[11px] text-white/70 mt-1">
-          21/05/2026 16:30
+          {ultimaColeta}
         </p>
-        <button className="flex items-center justify-center gap-2 w-full mt-4 bg-btg-700 hover:bg-btg-800 text-white text-xs font-sora font-medium rounded-md py-2.5 transition-colors duration-150">
-          <ArrowsClockwise size={14} />
-          Atualizar dados
+        <button
+          onClick={handleAtualizar}
+          disabled={atualizando}
+          className="flex items-center justify-center gap-2 w-full mt-4 bg-btg-700 hover:bg-btg-800 text-white text-xs font-sora font-medium rounded-md py-2.5 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ArrowsClockwise
+            size={14}
+            weight="bold"
+            className={atualizando ? "animate-spin" : ""}
+          />
+          {atualizando ? "Atualizando..." : "Atualizar dados"}
         </button>
       </div>
     </aside>

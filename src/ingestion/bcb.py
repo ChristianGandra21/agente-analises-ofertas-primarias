@@ -2,9 +2,9 @@
 Coleta indicadores macroeconômicos do Banco Central do Brasil (API SGS).
 
 Séries coletadas:
-    - Selic % a.a.        (código 1178) — meta Selic anualizada em percentual
-    - IPCA mensal         (código 433)
-    - USD/BRL diário      (código 1)
+    - Selic % a.a.        (código 432) — Selic anual (% a.a.)
+    - IPCA acum. 12m      (código 13522) — IPCA acumulado 12 meses (% a.a.)
+    - USD/BRL diário      (código 1) — Ptax de fechamento
 
 Uso direto:
     python -m src.ingestion.bcb
@@ -24,9 +24,9 @@ requests_cache.install_cache("data/db/bcb_cache", expire_after=3600)
 # ─── Séries disponíveis ──────────────────────────────────────────────────────
 
 SERIES = {
-    "selic":   {"codigo": 1178, "descricao": "Taxa Selic % a.a."},
-    "ipca":    {"codigo": 433,  "descricao": "IPCA mensal"},
-    "usd_brl": {"codigo": 1,    "descricao": "Taxa de câmbio USD/BRL"},
+    "selic":   {"codigo": 432,  "descricao": "Taxa Selic anual (% a.a.)"},
+    "ipca":    {"codigo": 13522,"descricao": "IPCA acumulado 12 meses (% a.a.)"},
+    "usd_brl": {"codigo": 1,    "descricao": "Taxa de câmbio USD/BRL (Ptax)"},
 }
 
 BCB_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/{n}?formato=json"

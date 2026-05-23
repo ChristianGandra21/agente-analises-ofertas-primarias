@@ -20,8 +20,7 @@ const SERIE_LABELS: Record<string, string> = {
 
 function formatValor(serie: string, valor: number): string {
   if (serie === "usd_brl") return `R$ ${valor.toFixed(2)}`;
-  if (serie === "selic") return `${(valor * 100 * 252).toFixed(2)}% a.a.`;
-  return `${(valor * 100).toFixed(2)}%`;
+  return `${valor.toFixed(2)}%`;
 }
 
 function formatSubLabel(serie: string): string {
