@@ -13,7 +13,8 @@ Uso direto:
 import requests
 import requests_cache
 from loguru import logger
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from sqlalchemy import func
 
 from src.database import IndicadorMacro, get_session, init_db
 
@@ -29,17 +30,30 @@ SERIES = {
     "usd_brl": {"codigo": 1,    "descricao": "Taxa de câmbio USD/BRL (Ptax)"},
 }
 
-BCB_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/{n}?formato=json"
+BCB_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json&dataInicial={data_inicial}&dataFinal={data_final}"
 
 
 # ─── Coleta ──────────────────────────────────────────────────────────────────
 
+def _format_data_br(data: datetime) -> str:
+    return data.strftime("%d/%m/%Y")
+
+
 def fetch_serie(codigo: int, n: int = 30) -> list[dict]:
     """Busca os últimos N registros de uma série do BCB."""
-    url = BCB_URL.format(codigo=codigo, n=n)
+    now = datetime.now(timezone.utc)
+    # Usa uma janela maior para garantir séries mensais (IPCA) e diárias.
+    lookback_days = max(n * 35, 400)
+    data_inicial = _format_data_br(now - timedelta(days=lookback_days))
+    data_final = _format_data_br(now)
+    url = BCB_URL.format(codigo=codigo, data_inicial=data_inicial, data_final=data_final)
     resp = requests.get(url, timeout=15)
     resp.raise_for_status()
-    return resp.json()
+    payload = resp.json()
+    if isinstance(payload, dict):
+        logger.error(f"Resposta inesperada do BCB (serie={codigo}): {payload}")
+        return []
+    return payload[-n:]
 
 
 def coletar_indicadores(n: int = 20) -> dict[str, list[dict]]:
@@ -82,7 +96,14 @@ def salvar_indicadores(dados: dict[str, list[dict]]) -> int:
         for nome, registros in dados.items():
             config = SERIES[nome]
 
+            if not isinstance(registros, list):
+                logger.error(f"Formato inválido para {nome}: esperado lista, recebido {type(registros).__name__}")
+                continue
+
             for r in registros:
+                if not isinstance(r, dict):
+                    logger.warning(f"Registro inválido em {nome}: {r}")
+                    continue
                 # Checa duplicata
                 existe = session.query(IndicadorMacro).filter_by(
                     serie=nome,
@@ -120,7 +141,14 @@ def get_ultimo_valor(serie: str) -> dict | None:
         registro = (
             session.query(IndicadorMacro)
             .filter_by(serie=serie)
-            .order_by(IndicadorMacro.data.desc())
+            .order_by(
+                func.substr(IndicadorMacro.data, 7, 4)
+                .op("||")("-")
+                .op("||")(func.substr(IndicadorMacro.data, 4, 2))
+                .op("||")("-")
+                .op("||")(func.substr(IndicadorMacro.data, 1, 2))
+                .desc()
+            )
             .first()
         )
         if not registro:

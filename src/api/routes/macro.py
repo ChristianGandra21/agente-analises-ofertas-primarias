@@ -1,8 +1,18 @@
 from fastapi import APIRouter, Query
+from sqlalchemy import func
 from src.database import get_session, IndicadorMacro
 from src.api.schemas import MacroSchema
 
 router = APIRouter()
+
+def _macro_data_iso_expr():
+    return (
+        func.substr(IndicadorMacro.data, 7, 4)
+        .op("||")("-")
+        .op("||")(func.substr(IndicadorMacro.data, 4, 2))
+        .op("||")("-")
+        .op("||")(func.substr(IndicadorMacro.data, 1, 2))
+    )
 
 @router.get("/macro", response_model=list[MacroSchema])
 def get_macro():
@@ -12,7 +22,7 @@ def get_macro():
             registro = (
                 session.query(IndicadorMacro)
                 .filter_by(serie=serie)
-                .order_by(IndicadorMacro.data.desc())
+                .order_by(_macro_data_iso_expr().desc())
                 .first()
             )
             if registro:
@@ -32,7 +42,7 @@ def get_historico(
             registros = (
                 session.query(IndicadorMacro)
                 .filter_by(serie=serie)
-                .order_by(IndicadorMacro.data.desc())
+                .order_by(_macro_data_iso_expr().desc())
                 .limit(limite)
                 .all()
             )
